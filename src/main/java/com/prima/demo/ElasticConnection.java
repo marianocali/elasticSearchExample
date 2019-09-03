@@ -1,17 +1,32 @@
 package com.prima.demo;
 
 import org.apache.http.HttpHost;
-import org.elasticsearch.action.DocWriteResponse;
+import java.util.logging.Logger;
+
+import org.elasticsearch.action.admin.indices.delete.DeleteIndexRequest;
+import org.elasticsearch.action.search.SearchRequest;
+import org.elasticsearch.action.search.SearchResponse;
+import org.elasticsearch.client.ElasticsearchClient;
+import org.elasticsearch.client.core.AcknowledgedResponse;
+import org.elasticsearch.client.core.MainResponse.Version;
+import org.elasticsearch.action.get.GetRequest;
 import org.elasticsearch.action.index.IndexRequest;
 import org.elasticsearch.action.index.IndexResponse;
-import org.elasticsearch.action.support.replication.ReplicationResponse;
+import org.elasticsearch.client.RequestOptions;
 import org.elasticsearch.client.RestClient;
 import org.elasticsearch.client.RestHighLevelClient;
-import org.elasticsearch.common.xcontent.XContentType;
-import org.elasticsearch.index.mapper.ObjectMapper;
+import org.elasticsearch.client.core.MainResponse;
+import org.elasticsearch.index.query.QueryBuilders;
+import org.elasticsearch.index.reindex.BulkByScrollResponse;
+import org.elasticsearch.index.reindex.DeleteByQueryAction;
+import org.elasticsearch.index.reindex.DeleteByQueryRequestBuilder;
+import org.elasticsearch.search.SearchHit;
+import org.elasticsearch.search.builder.SearchSourceBuilder;
+
 
 import java.io.IOException;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 public class ElasticConnection {
@@ -24,6 +39,8 @@ public class ElasticConnection {
 
     private static RestHighLevelClient restHighLevelClient;
     private static IndexResponse indexResponse;
+    private final static Logger LOGGER = Logger.getLogger(ElasticConnection.class.getName());
+    private static final String INDEX = "users";
 
 //    private static ObjectMapper objectMapper = new ObjectMapper();
 //
@@ -48,33 +65,96 @@ public class ElasticConnection {
         jsonMap.put("dni", dni);
         jsonMap.put("name", name);
         jsonMap.put("surname", surnme);
-        IndexRequest indexRequest = new IndexRequest("users").source(jsonMap);
+        IndexRequest indexRequest = new IndexRequest(INDEX).source(jsonMap);
         return indexRequest;
     }
 
-    /*
-    public void indexResponse(){
-        indexResponse = restHighLevelClient.index(request, RequestOptions.DEFAULT);
 
-        String index = indexResponse.getIndex();
-        String id = indexResponse.getId();
-        if (indexResponse.getResult() == DocWriteResponse.Result.CREATED) {
+    public List<IndexRequest> getDocuments(String dni, String name, String surname ){
+        //   SearchResponse response = restHighLevelClient.search().execute().actionGet();
+        return null;
 
-        } else if (indexResponse.getResult() == DocWriteResponse.Result.UPDATED) {
-
-        }
-        ReplicationResponse.ShardInfo shardInfo = indexResponse.getShardInfo();
-        if (shardInfo.getTotal() != shardInfo.getSuccessful()) {
-
-        }
-        if (shardInfo.getFailed() > 0) {
-            for (ReplicationResponse.ShardInfo.Failure failure :
-                    shardInfo.getFailures()) {
-                String reason = failure.reason();
-            }
-        }
     }
-    */
+
+    public Object getRequest(String id){
+        GetRequest getRequest = new GetRequest(INDEX,id);
+        getRequest.toString();
+        return getRequest;
+    }
+
+    public void showElasticInfo() throws IOException {
+        RestHighLevelClient client = getConection();
+        LOGGER.info("Cliente conectado. ");
+
+        MainResponse response = client.info(RequestOptions.DEFAULT);
+        String clusterName = response.getClusterName();
+        String clusterUuid = response.getClusterUuid();
+        String nodeName = response.getNodeName();
+        Version version = response.getVersion();
+
+        LOGGER.info("Información del cluster: ");
+
+        LOGGER.info("Nombre del cluster: {}" + clusterName);
+        LOGGER.info("Identificador del cluster: {}"+  clusterUuid);
+        LOGGER.info("Nombre de los nodos del cluster: {}"+ nodeName);
+        LOGGER.info("Versión de elasticsearch del cluster: {}"+ version.toString());
+
+        client.close();
+        LOGGER.info("Cliente desconectado.");
+    }
+
+    public void showDocuments() throws IOException {
+        RestHighLevelClient client = getConection();
+
+        SearchRequest searchRequest = new SearchRequest(INDEX);
+        SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
+        searchSourceBuilder.query(QueryBuilders.matchAllQuery());
+        searchRequest.source(searchSourceBuilder);
+
+        SearchResponse searchResponse = client.search(searchRequest, RequestOptions.DEFAULT);
+
+        for (SearchHit hit: searchResponse.getHits().getHits()){
+            LOGGER.info("Documento con id {}: {}" + hit.getId() + hit.getSourceAsString());
+        }
+
+        client.close();
+        LOGGER.info("Cliente desconectado.");
+    }
+
+    public void searchDocuments(String name) throws IOException {
+        RestHighLevelClient client = getConection();
+
+        SearchRequest searchRequest = new SearchRequest(INDEX);
+        SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
+        searchSourceBuilder.query(QueryBuilders.matchQuery("name", name));
+        searchRequest.source(searchSourceBuilder);
+
+        SearchResponse searchResponse = client.search(searchRequest, RequestOptions.DEFAULT);
+
+        for (SearchHit hit: searchResponse.getHits().getHits()){
+            LOGGER.info("Documento con id {}: {}" + hit.getId() + hit.getSourceAsString());
+        }
+
+        client.close();
+        LOGGER.info("Cliente desconectado.");
+    }
+
+   /* public long deleteDocuments(String name){
+        RestHighLevelClient client = getConection();
+       // DeleteIndexRequest deleteIndexRequest = new;
+       //         AcknowledgedResponse() deleteIndexResponse = client.indices().delete( , RequestOptions.DEFAULT);
+
+//        ElasticSearchClient client2 = new ElasticSearchClient();
+
+        BulkByScrollResponse response =
+                new DeleteByQueryRequestBuilder(client, DeleteByQueryAction.INSTANCE)
+                        .filter(QueryBuilders.matchQuery("name", "carlos"))
+                        .source(INDEX)
+                        .get();
+        long deleted = response.getDeleted();
+        return deleted;
+    }
+*/
 
     public void closeConnection()  {
         try{
