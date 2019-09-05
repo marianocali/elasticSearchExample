@@ -18,20 +18,20 @@ public class DemoApplication {
 		try{
 			RestHighLevelClient restHighLevelClient = elasticConnection.getConection();
 
-			//addDocuments(elasticConnection);
-
-//			elasticConnection.showElasticInfo();
+			//add documents to index
+//			addDocuments(elasticConnection);
 
 			//show all documents
-//			elasticConnection.showDocuments();
+			elasticConnection.showDocuments();
 
 			//show one document
-			elasticConnection.searchDocuments("Daniel");
+			elasticConnection.searchDocuments("surname", "Porcel");
+
+			//update document
+			elasticConnection.updateDocument("Gaston", "Gas");
 
 			//delete a document
-			// long deleted = elasticConnection.deleteDocuments("carlos");
-			// System.out.println("deleted: " + deleted);
-
+			elasticConnection.deleteDocuments("Mariano");
 
 		}catch (Exception e){
 			e.printStackTrace();
@@ -44,11 +44,17 @@ public class DemoApplication {
 		//add Document to index
 		IndexRequest indexRequest = elasticConnection.indexRequest( "25861783","Mariano","Calí");
 		IndexRequest indexRequest1= elasticConnection.indexRequest( "123","Carlos","Porcel");
-		IndexRequest indexRequest2= elasticConnection.indexRequest( "123","Daniel","Castillo");
+		IndexRequest indexRequest2= elasticConnection.indexRequest( "456","Daniel","Castillo");
+		IndexRequest indexRequest3= elasticConnection.indexRequest( "789","Carlos","Pereyra");
+		IndexRequest indexRequest4= elasticConnection.indexRequest( "012","Gaston","Greco");
+		IndexRequest indexRequest5= elasticConnection.indexRequest( "3456","Juan","Rivera");
 
 		elasticConnection.getConection().index(indexRequest, RequestOptions.DEFAULT);
 		elasticConnection.getConection().index(indexRequest1, RequestOptions.DEFAULT);
 		elasticConnection.getConection().index(indexRequest2, RequestOptions.DEFAULT);
+		elasticConnection.getConection().index(indexRequest3, RequestOptions.DEFAULT);
+		elasticConnection.getConection().index(indexRequest4, RequestOptions.DEFAULT);
+		elasticConnection.getConection().index(indexRequest5, RequestOptions.DEFAULT);
 	}
 
 }

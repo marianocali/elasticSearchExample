@@ -2,10 +2,12 @@ package com.prima.demo;
 
 import org.apache.http.HttpHost;
 import java.util.logging.Logger;
-
-import org.elasticsearch.action.admin.indices.delete.DeleteIndexRequest;
+import org.elasticsearch.index.get.GetResult;
+import org.elasticsearch.action.delete.DeleteRequest;
+import org.elasticsearch.action.delete.DeleteResponse;
 import org.elasticsearch.action.search.SearchRequest;
 import org.elasticsearch.action.search.SearchResponse;
+import org.elasticsearch.action.update.UpdateRequest;
 import org.elasticsearch.client.ElasticsearchClient;
 import org.elasticsearch.client.core.AcknowledgedResponse;
 import org.elasticsearch.client.core.MainResponse.Version;
@@ -16,10 +18,14 @@ import org.elasticsearch.client.RequestOptions;
 import org.elasticsearch.client.RestClient;
 import org.elasticsearch.client.RestHighLevelClient;
 import org.elasticsearch.client.core.MainResponse;
+import org.elasticsearch.common.xcontent.XContentFactory;
+import org.elasticsearch.index.get.GetResult;
+import org.elasticsearch.index.query.QueryBuilder;
 import org.elasticsearch.index.query.QueryBuilders;
 import org.elasticsearch.index.reindex.BulkByScrollResponse;
 import org.elasticsearch.index.reindex.DeleteByQueryAction;
 import org.elasticsearch.index.reindex.DeleteByQueryRequestBuilder;
+import static org.elasticsearch.index.query.QueryBuilders.*;
 import org.elasticsearch.search.SearchHit;
 import org.elasticsearch.search.builder.SearchSourceBuilder;
 
@@ -42,12 +48,6 @@ public class ElasticConnection {
     private final static Logger LOGGER = Logger.getLogger(ElasticConnection.class.getName());
     private static final String INDEX = "users";
 
-//    private static ObjectMapper objectMapper = new ObjectMapper();
-//
-//    private static final String INDEX = "persondata";
-//    private static final String TYPE = "person";
-
-
 
     public RestHighLevelClient getConection(){
         if(restHighLevelClient == null) {
@@ -69,19 +69,6 @@ public class ElasticConnection {
         return indexRequest;
     }
 
-
-    public List<IndexRequest> getDocuments(String dni, String name, String surname ){
-        //   SearchResponse response = restHighLevelClient.search().execute().actionGet();
-        return null;
-
-    }
-
-    public Object getRequest(String id){
-        GetRequest getRequest = new GetRequest(INDEX,id);
-        getRequest.toString();
-        return getRequest;
-    }
-
     public void showElasticInfo() throws IOException {
         RestHighLevelClient client = getConection();
         LOGGER.info("Cliente conectado. ");
@@ -98,8 +85,6 @@ public class ElasticConnection {
         LOGGER.info("Identificador del cluster: {}"+  clusterUuid);
         LOGGER.info("Nombre de los nodos del cluster: {}"+ nodeName);
         LOGGER.info("Versión de elasticsearch del cluster: {}"+ version.toString());
-
-        client.close();
         LOGGER.info("Cliente desconectado.");
     }
 
@@ -116,17 +101,15 @@ public class ElasticConnection {
         for (SearchHit hit: searchResponse.getHits().getHits()){
             LOGGER.info("Documento con id {}: {}" + hit.getId() + hit.getSourceAsString());
         }
-
-        client.close();
         LOGGER.info("Cliente desconectado.");
     }
 
-    public void searchDocuments(String name) throws IOException {
+    public SearchResponse searchDocuments(String field, String value) throws IOException {
         RestHighLevelClient client = getConection();
 
         SearchRequest searchRequest = new SearchRequest(INDEX);
         SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
-        searchSourceBuilder.query(QueryBuilders.matchQuery("name", name));
+        searchSourceBuilder.query(QueryBuilders.matchQuery(field, value));
         searchRequest.source(searchSourceBuilder);
 
         SearchResponse searchResponse = client.search(searchRequest, RequestOptions.DEFAULT);
@@ -135,26 +118,43 @@ public class ElasticConnection {
             LOGGER.info("Documento con id {}: {}" + hit.getId() + hit.getSourceAsString());
         }
 
-        client.close();
-        LOGGER.info("Cliente desconectado.");
+        return searchResponse;
     }
 
-   /* public long deleteDocuments(String name){
-        RestHighLevelClient client = getConection();
-       // DeleteIndexRequest deleteIndexRequest = new;
-       //         AcknowledgedResponse() deleteIndexResponse = client.indices().delete( , RequestOptions.DEFAULT);
-
-//        ElasticSearchClient client2 = new ElasticSearchClient();
-
-        BulkByScrollResponse response =
-                new DeleteByQueryRequestBuilder(client, DeleteByQueryAction.INSTANCE)
-                        .filter(QueryBuilders.matchQuery("name", "carlos"))
-                        .source(INDEX)
-                        .get();
-        long deleted = response.getDeleted();
-        return deleted;
+    private DeleteResponse deletePersonById(String id) {
+        DeleteRequest deleteRequest = new DeleteRequest(INDEX, id);
+        DeleteResponse deleteResponse = new DeleteResponse();
+        try {
+            deleteResponse = getConection().delete(deleteRequest,RequestOptions.DEFAULT);
+        } catch (java.io.IOException e){
+            e.getLocalizedMessage();
+        }
+        return deleteResponse;
     }
-*/
+
+    public void deleteDocuments(String name) throws IOException {
+        SearchResponse searchResponse = searchDocuments("name","Mariano");
+
+        for (SearchHit hit: searchResponse.getHits().getHits()){
+            deletePersonById(hit.getId());
+        }
+    }
+
+    public void updateDocument(String oldName, String newName) throws IOException{
+
+        SearchResponse searchResponse = searchDocuments("name",oldName);
+
+        UpdateRequest updateRequest = new UpdateRequest();
+        updateRequest.index(INDEX);
+        if (searchResponse.getHits().getHits().length >0 ){
+            updateRequest.id(searchResponse.getHits().getAt(0).getId());
+            updateRequest.doc(XContentFactory.jsonBuilder()
+                    .startObject()
+                    .field("name", newName)
+                    .endObject());
+            getConection().update(updateRequest,RequestOptions.DEFAULT).getGetResult();
+        }
+    }
 
     public void closeConnection()  {
         try{
